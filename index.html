@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Raver — Torneos</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="site">
+    <div class="container">
+      <h1>
+        <span class="logo">R</span>
+        <a href="index.html">Club Ateneo Ingeniero Raver</a>
+      </h1>
+    </div>
+  </header>
+
+  <main class="container">
+    <h2>Torneos</h2>
+    <p class="muted" id="subtitle">Cargando…</p>
+    <div id="grid" class="cat-grid"></div>
+  </main>
+
+  <script src="js/render.js"></script>
+  <script src="js/api.js"></script>
+  <script>
+    (async () => {
+      const grid = document.getElementById("grid");
+      const sub = document.getElementById("subtitle");
+      try {
+        const idx = await RaverAPI.adoptSnapshotSession() || await RaverAPI.loadSnapshotIndex();
+        const cats = idx.categories || [];
+        sub.textContent = `${cats.length} torneo${cats.length === 1 ? "" : "s"} en los que participa el club. ` +
+                          `Datos actualizados ${new Date(idx.generated_at * 1000).toLocaleString("es-AR")}.`;
+        if (!cats.length) {
+          grid.innerHTML = '<p class="error">No hay torneos cargados — ejecutá <code>python3 snapshot.py</code></p>';
+          return;
+        }
+        for (const c of cats) {
+          const card = RaverRender.h("a", {
+            class: "cat-card",
+            href: RaverRender.urlFor("tournament", { icc: c.icc_hash }),
+          },
+            RaverRender.h("div", { class: "cat-name" }, c.categoria || "?"),
+            RaverRender.h("div", { class: "comp" }, c.competicion || ""),
+            RaverRender.h("div", { class: "deleg" }, c.delegacion || ""),
+            RaverRender.h("div", { class: "stats" },
+              RaverRender.h("div", {},
+                RaverRender.h("div", { class: "stat-num" }, `${c.raver?.PG ?? 0}-${c.raver?.PP ?? 0}`),
+                RaverRender.h("div", { class: "stat-detail" }, "Récord")
+              ),
+              c.raver?.Posicion != null && c.raver.Posicion > 0 ?
+                RaverRender.h("div", {},
+                  RaverRender.h("div", { class: "stat-num" }, `${c.raver.Posicion}°`),
+                  RaverRender.h("div", { class: "stat-detail" }, c.grupo || "Grupo")
+                ) :
+                RaverRender.h("div", {},
+                  RaverRender.h("span", { class: "pos" }, c.grupo || c.fase || "—")
+                ),
+              RaverRender.h("div", { style: "margin-left:auto" },
+                RaverRender.h("div", { class: "stat-detail" }, `${c.played} jugados`),
+                RaverRender.h("div", { class: "stat-detail" }, `${c.upcoming} próximos`),
+              ),
+            ),
+          );
+          grid.appendChild(card);
+        }
+      } catch (e) {
+        grid.innerHTML = `<p class="error">Error: ${RaverRender.escapeHtml(e.message)}</p>`;
+      }
+    })();
+  </script>
+  <script src="js/footer.js"></script>
+</body>
+</html>

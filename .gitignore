@@ -1,0 +1,13 @@
+# Python (we don't ship server.py / snapshot.py to the public repo)
+__pycache__/
+*.pyc
+
+# Local-only files
+.DS_Store
+
+# Local cache of stale snapshots from old runs
+snapshots/_stale/
+
+# Dev-only tools (run from outside the public repo)
+server.py
+snapshot.py

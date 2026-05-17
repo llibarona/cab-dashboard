@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jugador — Raver</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="site">
+    <div class="container">
+      <h1><span class="logo">R</span><a href="index.html">Club Ateneo Ingeniero Raver</a></h1>
+      <nav>
+        <a href="index.html">Torneos</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="crumbs">
+      <a href="index.html">Torneos</a> ›
+      <a id="crumb-tournament" href="#">Torneo</a> ›
+      <a id="crumb-team" href="#">Equipo</a> ›
+      <span id="crumb-player">…</span>
+    </div>
+
+    <header class="detail-header" id="header"></header>
+
+    <h2>Estadísticas por partido</h2>
+    <div class="muted" id="games-sub"></div>
+    <div class="table-wrap">
+      <table id="per-game-table"></table>
+    </div>
+
+    <h2>Mapa de tiros (temporada)</h2>
+    <div id="heatmap-section"></div>
+  </main>
+
+  <script src="js/render.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/stats.js"></script>
+  <script src="js/court.js"></script>
+  <script src="js/heatmap.js"></script>
+  <script>
+    (async () => {
+      const { h, escapeHtml, urlFor, getQuery, fmtDate, fmtMin } = RaverRender;
+      const { STAT_COLS } = RaverStats;
+      const { makeCourtSvg, renderShots, shotSummary } = RaverCourt;
+      const q = getQuery();
+      const iccHash = q.icc;
+      const componente_id = q.componente_id;
+      const teamIdInt = q.team ? parseInt(q.team) : null;
+
+      if (!iccHash || !componente_id) {
+        document.querySelector("main").innerHTML = '<p class="error">Faltan parámetros.</p>';
+        return;
+      }
+
+      let snap;
+      try { snap = await RaverAPI.loadSnapshot(iccHash); }
+      catch (e) {
+        document.querySelector("main").innerHTML = `<p class="error">Snapshot no encontrado.</p>`;
+        return;
+      }
+
+      // Find this player
+      const playerAgg = (snap.player_stats || []).find(p =>
+        String(p.componente_id) === String(componente_id) &&
+        (teamIdInt == null || p.idequipo === teamIdInt)
+      );
+      if (!playerAgg) {
+        document.querySelector("main").innerHTML =
+          `<p class="error">Jugador no encontrado en el snapshot.</p>`;
+        return;
+      }
+
+      // ─── Header
+      document.title = `${playerAgg.nombre} — Raver`;
+      document.getElementById("crumb-tournament").href = urlFor("tournament", { icc: iccHash });
+      document.getElementById("crumb-tournament").textContent = snap.category.NombreCategoria;
+      // find team encoded id
+      const teamNorm = (playerAgg.equipo || "").trim().toUpperCase();
+      const teamEntry = (snap.standings || []).find(
+        t => (t.NombreEquipo || "").trim().toUpperCase() === teamNorm
+      );
+      const teamUrl = teamEntry ? urlFor("team", { id_equipo: teamEntry.IdEquipo, icc: iccHash, name: playerAgg.equipo }) : "#";
+      document.getElementById("crumb-team").href = teamUrl;
+      document.getElementById("crumb-team").textContent = playerAgg.equipo;
+      document.getElementById("crumb-player").textContent = playerAgg.nombre;
+
+      const header = document.getElementById("header");
+      header.appendChild(h("div", {},
+        h("span", { class: "foto placeholder", style: "width:64px;height:64px;font-size:18px" },
+          (playerAgg.nombre || "?").split(/[ ,]+/).slice(0,2).map(s => s[0]||"").join("").toUpperCase()
+        )
+      ));
+      header.appendChild(h("div", { style: "flex: 1" },
+        h("div", { class: "name" }, playerAgg.nombre),
+        h("div", { class: "sub" },
+          h("a", { href: teamUrl }, playerAgg.equipo),
+          " · ",
+          h("span", {}, "Dorsal #" + (playerAgg.dorsal || "—")),
+          " · ",
+          h("span", {}, snap.category.NombreCategoria),
+        )
+      ));
+      header.appendChild(h("div", { class: "summary-grid" },
+        h("div", { class: "stat" },
+          h("div", { class: "num" }, playerAgg.GP || 0),
+          h("div", { class: "lbl" }, "PJ")
+        ),
+        h("div", { class: "stat" },
+          h("div", { class: "num" }, (playerAgg.PTS_avg || 0).toFixed(1)),
+          h("div", { class: "lbl" }, "PTS")
+        ),
+        h("div", { class: "stat" },
+          h("div", { class: "num" }, (playerAgg.REB_avg || 0).toFixed(1)),
+          h("div", { class: "lbl" }, "REB")
+        ),
+        h("div", { class: "stat" },
+          h("div", { class: "num" }, (playerAgg.AST_avg || 0).toFixed(1)),
+          h("div", { class: "lbl" }, "AST")
+        ),
+        h("div", { class: "stat" },
+          h("div", { class: "num" }, (playerAgg.VAL_avg || 0).toFixed(1)),
+          h("div", { class: "lbl" }, "VAL")
+        ),
+      ));
+
+      // ─── Per-game stats — for each game, build a lookup from the
+      // (idequipo, dorsal, nombre) triple in mapadetiro.jugadores* to the
+      // integer componente_id, then use that to match estadisticas rows
+      // (which carry the encoded componente_id, not the integer).
+      const games = (snap.games || []).filter(g => g.Estado === "Terminado" && g._hash);
+      const perGameRows = [];
+      const allShots = [];
+      const targetCompId = String(componente_id);
+      for (const g of games) {
+        try {
+          const detail = await RaverAPI.loadGameDetail(g, iccHash);
+          const md = detail.mapadetiro?.mapadetiro || {};
+          const estad = detail.estadisticas?.estadisticas || {};
+
+          // Find this player's (idequipo, dorsal, nombre) in mapadetiro lists for THIS game
+          let myTriple = null;
+          for (const list of [md.jugadoreslocales, md.jugadoresvisitantes]) {
+            for (const j of (list || [])) {
+              if (String(j.componente_id) === targetCompId) {
+                myTriple = {
+                  idequipo: j.idequipo,
+                  dorsal: String(j.dorsal || ""),
+                  nombre: (j.nombre || "").trim(),
+                };
+                break;
+              }
+            }
+            if (myTriple) break;
+          }
+
+          if (myTriple) {
+            for (const side of ["estadisticasequipolocal", "estadisticasequipovisitante"]) {
+              for (const r of (estad[side] || [])) {
+                if (r.idequipo === myTriple.idequipo
+                    && String(r.dorsal || "") === myTriple.dorsal
+                    && (r.nombre || "").trim() === myTriple.nombre) {
+                  perGameRows.push({ game: g, row: r });
+                  break;
+                }
+              }
+            }
+          }
+
+          // shots — these match by integer componente_id directly
+          const tiros = md.tiros || [];
+          for (const s of tiros) {
+            if (String(s.componente_id) === targetCompId) allShots.push(s);
+          }
+        } catch (_) {}
+      }
+
+      perGameRows.sort((a,b) => parseFecha(b.game.Fecha) - parseFecha(a.game.Fecha));
+      document.getElementById("games-sub").textContent = `${perGameRows.length} partidos jugados.`;
+
+      const cols = [
+        { key: "Jornada",    label: "Jornada" },
+        { key: "Fecha",      label: "Fecha" },
+        { key: "rival",      label: "Rival" },
+        { key: "resultado",  label: "Resultado" },
+        { key: "MIN",        label: "MIN", title: "Minutos jugados" },
+        { key: "PTS",        label: "PTS" },
+        { key: "FG",         label: "TC", title: "Tiros de campo (✓/int)" },
+        { key: "FG2",        label: "T2" },
+        { key: "FG3",        label: "T3" },
+        { key: "FT",         label: "TL" },
+        { key: "REB",        label: "REB" },
+        { key: "AST",        label: "AST" },
+        { key: "STL",        label: "ROB" },
+        { key: "BLK",        label: "TAP" },
+        { key: "TOV",        label: "PER" },
+        { key: "FOULS",      label: "FAL" },
+        { key: "VAL",        label: "VAL" },
+        { key: "MM",         label: "+/-" },
+      ];
+      const head = h("thead", {}, h("tr", {}, ...cols.map(c => h("th", { class: "num", title: c.title || "" }, c.label))));
+      const body = h("tbody", {});
+      for (const { game, row } of perGameRows) {
+        const isLocal = (game.NombreEquipoLocal || "").trim().toUpperCase() === teamNorm;
+        const rival = isLocal ? game.NombreEquipoVisitante : game.NombreEquipoLocal;
+        const r = game.Resultados || {};
+        const myScore = isLocal ? r.ResultadoLocal : r.ResultadoVisitante;
+        const oppScore = isLocal ? r.ResultadoVisitante : r.ResultadoLocal;
+        const won = parseInt(myScore) > parseInt(oppScore);
+        body.appendChild(h("tr", {},
+          h("td", { class: "num" }, "J" + game.NumeroJornada),
+          h("td", { class: "num" }, fmtDate(game.Fecha)),
+          h("td", {}, h("a", { href: game._hash ? urlFor("game", { hash: game._hash, icc: iccHash }) : "#" }, rival)),
+          h("td", { class: "num" }, h("span", { class: won ? "winning" : "", style: won ? "color:var(--good);font-weight:600" : "" }, `${myScore}-${oppScore}`)),
+          h("td", { class: "num" }, row.tiempo_jugado || "—"),
+          h("td", { class: "num" }, row.puntos ?? 0),
+          h("td", { class: "num" }, fgCell(row.canasta2p + row.canasta3p, row.canasta2p + row.tiro2Fallado + row.canasta3p + row.tiro3Fallado)),
+          h("td", { class: "num" }, fgCell(row.canasta2p, row.canasta2p + row.tiro2Fallado)),
+          h("td", { class: "num" }, fgCell(row.canasta3p, row.canasta3p + row.tiro3Fallado)),
+          h("td", { class: "num" }, fgCell(row.canasta1p, row.canasta1p + row.tiro1Fallado)),
+          h("td", { class: "num" }, row.rebotes ?? 0),
+          h("td", { class: "num" }, row.asistencias ?? 0),
+          h("td", { class: "num" }, row.recuperaciones ?? 0),
+          h("td", { class: "num" }, row.taponescometidos ?? 0),
+          h("td", { class: "num" }, row.perdidas ?? 0),
+          h("td", { class: "num" }, row.faltascometidas ?? 0),
+          h("td", { class: "num" }, row.valoracion ?? 0),
+          h("td", { class: "num" }, row.masMenos ?? 0),
+        ));
+      }
+      document.getElementById("per-game-table").replaceChildren(head, body);
+
+      // ─── Heatmap (no filter — always this player)
+      const heatSection = document.getElementById("heatmap-section");
+      RaverHeatmap.render(heatSection, allShots, {
+        teamLabel: playerAgg.nombre,
+        showFilter: false,
+      });
+
+      function fgCell(made, attempted) {
+        if (!attempted) return "—";
+        return `${made}/${attempted}`;
+      }
+      function parseFecha(f) {
+        if (!f) return 0;
+        const [d, m, y] = f.split("/");
+        return new Date(parseInt(y), parseInt(m)-1, parseInt(d)).getTime() || 0;
+      }
+    })();
+  </script>
+  <script src="js/footer.js"></script>
+</body>
+</html>

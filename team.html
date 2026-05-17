@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Equipo — Raver</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="site">
+    <div class="container">
+      <h1><span class="logo">R</span><a href="index.html">Club Ateneo Ingeniero Raver</a></h1>
+      <nav>
+        <a href="index.html">Torneos</a>
+        <a id="back-link" href="#">Volver al torneo</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="crumbs">
+      <a href="index.html">Torneos</a> ›
+      <a id="crumb-tournament" href="#">Torneo</a> ›
+      <span id="crumb-team">…</span>
+    </div>
+
+    <header class="detail-header" id="header"></header>
+
+    <div class="tabs">
+      <button class="active" data-tab="roster">Plantel</button>
+      <button data-tab="schedule">Partidos</button>
+      <button data-tab="heatmap">Mapa de tiros</button>
+    </div>
+
+    <section id="tab-roster" class="tab-content"></section>
+    <section id="tab-schedule" class="tab-content" style="display:none"></section>
+    <section id="tab-heatmap" class="tab-content" style="display:none"></section>
+  </main>
+
+  <script src="js/render.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/stats.js"></script>
+  <script src="js/court.js"></script>
+  <script src="js/heatmap.js"></script>
+  <script>
+    (async () => {
+      const { h, escapeHtml, urlFor, getQuery, renderEscudo, fmtDate, fmtDateLong } = RaverRender;
+      const { STAT_COLS, sortPlayers } = RaverStats;
+      const { makeCourtSvg, renderShots, shotSummary } = RaverCourt;
+      const q = getQuery();
+      const iccHash = q.icc;
+      const teamId = q.id_equipo;
+      const teamName = q.name;
+
+      if (!iccHash || !teamId) {
+        document.querySelector("main").innerHTML = '<p class="error">Faltan parámetros.</p>';
+        return;
+      }
+
+      // back/breadcrumb links
+      document.getElementById("back-link").href = urlFor("tournament", { icc: iccHash });
+      document.getElementById("crumb-tournament").href = urlFor("tournament", { icc: iccHash });
+
+      let snap;
+      try { snap = await RaverAPI.loadSnapshot(iccHash); }
+      catch (e) {
+        document.querySelector("main").innerHTML = `<p class="error">Snapshot no encontrado.</p>`;
+        return;
+      }
+
+      document.getElementById("crumb-tournament").textContent = snap.category.NombreCategoria;
+
+      // ─── Build header
+      const standings = snap.standings || [];
+      const me = standings.find(t => t.IdEquipo === teamId)
+              || standings.find(t => (t.NombreEquipo || "").toUpperCase() === (teamName || "").toUpperCase())
+              || { NombreEquipo: teamName };
+      const isRaver = (me.NombreEquipo || "").toUpperCase().includes("INGENIERO RAVER");
+      // Normalize team name for matching (some API rows have trailing spaces)
+      const teamNormNameForAgg = (me.NombreEquipo || "").trim().toUpperCase();
+      document.title = `${me.NombreEquipo} — Raver`;
+      document.getElementById("crumb-team").textContent = me.NombreEquipo || "";
+
+      const header = document.getElementById("header");
+      header.appendChild(h("div", {},
+        renderEscudo(me.Escudo, me.NombreEquipo, "escudo-large"),
+      ));
+      header.appendChild(h("div", { style: "flex: 1" },
+        h("div", { class: "name" }, me.NombreEquipo || teamName),
+        h("div", { class: "sub" },
+          h("span", { class: "pill" }, snap.category.NombreCategoria),
+          h("span", { class: "pill" }, snap.phase.NombreGrupo),
+          isRaver ? h("span", { class: "pill", style: "background: var(--accent); color:white;" }, "Raver") : null,
+        )
+      ));
+
+      const teamAgg = (snap.team_stats || []).find(
+                          t => (t.equipo || "").trim().toUpperCase() === teamNormNameForAgg)
+                   || (snap.team_stats || []).find(t => t.idequipo === parseInt(me.IdEquipoNotificacion || "0"))
+                   || {};
+      const recordPG = me.PartidosGanados ?? 0;
+      const recordPP = me.PartidosPerdidos ?? 0;
+      const ppg = teamAgg.GP ? (teamAgg.PTS / teamAgg.GP).toFixed(1) : "—";
+      const summary = h("div", { class: "summary-grid" },
+        h("div", { class: "stat" },
+          h("div", { class: "num" }, `${recordPG}-${recordPP}`),
+          h("div", { class: "lbl" }, "Récord")
+        ),
+        h("div", { class: "stat" },
+          h("div", { class: "num" }, me.Posicion || "—"),
+          h("div", { class: "lbl" }, "Posición")
+        ),
+        h("div", { class: "stat" },
+          h("div", { class: "num" }, ppg),
+          h("div", { class: "lbl" }, "PTS / partido")
+        ),
+      );
+      header.appendChild(summary);
+
+      // ─── Roster tab — players in this team from player_stats
+      // Note: API team names sometimes have trailing whitespace inconsistencies
+      // (e.g. "INDEPENDIENTE DE ESCOBAR " vs "INDEPENDIENTE DE ESCOBAR"). Normalize.
+      const teamNormName = (me.NombreEquipo || "").trim().toUpperCase();
+      const roster = (snap.player_stats || []).filter(
+        p => (p.equipo || "").trim().toUpperCase() === teamNormName
+      );
+      const rosterTab = document.getElementById("tab-roster");
+      rosterTab.innerHTML = "";
+      if (!roster.length) {
+        rosterTab.appendChild(h("p", { class: "muted" }, "Sin datos de jugadores."));
+      } else {
+        let sortKey = "PTS_avg", sortAsc = false;
+        function renderRoster() {
+          const rows = sortPlayers(roster, sortKey, sortAsc);
+          const head = h("thead", {},
+            h("tr", {},
+              h("th", {}, "Jugador"),
+              h("th", { class: "num" }, "#"),
+              ...STAT_COLS.map(col => h("th", {
+                class: "sortable num " + (sortKey === col.key ? "sorted " + (sortAsc ? "asc" : "") : ""),
+                title: col.title,
+                onclick: () => {
+                  if (sortKey === col.key) sortAsc = !sortAsc;
+                  else { sortKey = col.key; sortAsc = false; }
+                  renderRoster();
+                },
+              }, col.label))
+            )
+          );
+          const body = h("tbody", {});
+          for (const p of rows) {
+            body.appendChild(h("tr", {},
+              h("td", { class: "player-cell" },
+                h("a", {
+                  href: urlFor("player", { componente_id: p.componente_id, team: p.idequipo, icc: iccHash })
+                }, p.nombre)
+              ),
+              h("td", { class: "num" }, p.dorsal || "—"),
+              ...STAT_COLS.map(col => h("td", { class: "num" }, col.fmt(p[col.key])))
+            ));
+          }
+          const wrap = h("div", { class: "table-wrap" }, h("table", {}, head, body));
+          rosterTab.replaceChildren(wrap);
+        }
+        renderRoster();
+      }
+
+      // ─── Schedule tab — games for this team, played desc, upcoming asc
+      const allGames = (snap.games || []).filter(g =>
+        (g.NombreEquipoLocal || "").trim().toUpperCase() === teamNormNameForAgg ||
+        (g.NombreEquipoVisitante || "").trim().toUpperCase() === teamNormNameForAgg
+      );
+      const tplayed = allGames
+        .filter(g => g.Estado === "Terminado")
+        .sort((a,b) => parseFecha(b.Fecha) - parseFecha(a.Fecha));
+      const tupcoming = allGames
+        .filter(g => g.Estado !== "Terminado")
+        .sort((a,b) => parseFecha(a.Fecha) - parseFecha(b.Fecha));
+
+      const schedTab = document.getElementById("tab-schedule");
+      schedTab.innerHTML = "";
+      if (tupcoming.length) {
+        schedTab.appendChild(h("h3", {}, "Próximos partidos"));
+        const card = h("div", { class: "card", style: "padding: 0" });
+        for (const g of tupcoming) {
+          card.appendChild(renderGameRow(g, true));
+        }
+        schedTab.appendChild(card);
+      }
+      if (tplayed.length) {
+        schedTab.appendChild(h("h3", {}, "Partidos jugados"));
+        const card = h("div", { class: "card", style: "padding: 0" });
+        for (const g of tplayed) {
+          card.appendChild(renderGameRow(g, false));
+        }
+        schedTab.appendChild(card);
+      }
+      if (!allGames.length) schedTab.appendChild(h("p", { class: "muted" }, "Sin partidos."));
+
+      // ─── Heatmap tab — load all this team's shots from cached game JSONs
+      const heatTab = document.getElementById("tab-heatmap");
+      heatTab.innerHTML = '<div class="loading">Cargando tiros…</div>';
+      try {
+        const shotsAccum = [];
+        let teamIdInt = me.IdEquipoNotificacion ? parseInt(me.IdEquipoNotificacion) : null;
+        // Infer team's integer id from roster's first idequipo if needed
+        const rosterTeamId = roster.length ? roster[0].idequipo : null;
+        if (!teamIdInt && rosterTeamId) teamIdInt = rosterTeamId;
+
+        // Also gather player names from each game's mapadetiro lists.
+        // Shot rows use plain-int componente_id, which only matches the
+        // mapadetiro.jugadoreslocales/visitantes entries (NOT the encoded
+        // componente_id in estadisticas).
+        const namesById = new Map();   // String(componente_id) → { nombre, dorsal }
+
+        for (const g of tplayed) {
+          try {
+            const detail = await RaverAPI.loadGameDetail(g, iccHash);
+            const md = detail.mapadetiro?.mapadetiro || {};
+            const tiros = md.tiros || [];
+            for (const s of tiros) {
+              if (teamIdInt != null && s.equipo_id !== teamIdInt) continue;
+              shotsAccum.push(s);
+            }
+            // Build name index from this game's roster lists for our team
+            for (const list of [md.jugadoreslocales, md.jugadoresvisitantes]) {
+              for (const j of (list || [])) {
+                if (teamIdInt != null && j.idequipo !== teamIdInt) continue;
+                const k = String(j.componente_id || "");
+                if (!k) continue;
+                if (!namesById.has(k)) namesById.set(k, { nombre: j.nombre, dorsal: j.dorsal });
+              }
+            }
+          } catch (_) { /* skip game without detail */ }
+        }
+
+        // Build player list from the names we collected; tally shots per
+        const playerMap = new Map();
+        for (const [k, info] of namesById) {
+          playerMap.set(k, { componente_id: k, nombre: info.nombre, dorsal: info.dorsal, shotCount: 0 });
+        }
+        for (const s of shotsAccum) {
+          const k = String(s.componente_id || "");
+          if (!k) continue;
+          if (!playerMap.has(k)) {
+            playerMap.set(k, { componente_id: k, nombre: `#${s.dorsal || "?"}`, dorsal: s.dorsal, shotCount: 0 });
+          }
+          playerMap.get(k).shotCount += 1;
+        }
+        const players = [...playerMap.values()];
+
+        heatTab.innerHTML = "";
+        RaverHeatmap.render(heatTab, shotsAccum, {
+          teamLabel: me.NombreEquipo,
+          players,
+          showFilter: true,
+        });
+      } catch (e) {
+        heatTab.innerHTML = `<p class="error">Error cargando tiros: ${escapeHtml(e.message)}</p>`;
+      }
+
+      // ─── Tabs
+      document.querySelectorAll(".tabs button").forEach(btn => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".tabs button").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+          document.querySelectorAll(".tab-content").forEach(t => t.style.display = "none");
+          document.getElementById("tab-" + btn.dataset.tab).style.display = "";
+        });
+      });
+
+      // helpers
+      function parseFecha(f) {
+        if (!f) return 0;
+        const [d, m, y] = f.split("/");
+        return new Date(parseInt(y), parseInt(m)-1, parseInt(d)).getTime() || 0;
+      }
+
+      function renderGameRow(g, isFuture) {
+        const r = g.Resultados || {};
+        const homeIsRaver = (g.NombreClubLocal || "").toUpperCase().includes("INGENIERO RAVER");
+        const awayIsRaver = (g.NombreClubVisitante || "").toUpperCase().includes("INGENIERO RAVER");
+        const home = h("div", { class: "team home" + (homeIsRaver ? " raver" : "") },
+          h("span", { class: "name" }, g.NombreEquipoLocal || "—"),
+          renderEscudo(g.ImgEquipoLocal, g.NombreEquipoLocal, "escudo")
+        );
+        const away = h("div", { class: "team away" + (awayIsRaver ? " raver" : "") },
+          renderEscudo(g.ImgEquipoVisitante, g.NombreEquipoVisitante, "escudo"),
+          h("span", { class: "name" }, g.NombreEquipoVisitante || "—")
+        );
+        let scoreEl;
+        if (isFuture) {
+          scoreEl = h("div", { class: "score future" }, g.Hora || "—");
+        } else {
+          const rl = parseInt(r.ResultadoLocal || "0");
+          const rv = parseInt(r.ResultadoVisitante || "0");
+          scoreEl = h("div", { class: "score" },
+            h("span", { class: rl > rv ? "winning" : "" }, r.ResultadoLocal || "?"),
+            h("span", { class: "vs" }, "—"),
+            h("span", { class: rv > rl ? "winning" : "" }, r.ResultadoVisitante || "?"),
+          );
+        }
+        const dateEl = h("div", { class: "date" }, fmtDate(g.Fecha));
+
+        const link = h("a", {
+          class: "game" + (isFuture ? " future" : ""),
+          href: g._hash ? urlFor("game", { hash: g._hash, icc: iccHash }) : "#",
+          style: g._hash ? "color: inherit" : "color: inherit; pointer-events: none",
+        },
+          h("div", { class: "jornada" }, g.NumeroJornada ? `J${g.NumeroJornada}` : ""),
+          home, scoreEl, away,
+          dateEl,
+        );
+        return link;
+      }
+
+    })();
+  </script>
+  <script src="js/footer.js"></script>
+</body>
+</html>

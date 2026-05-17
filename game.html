@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Partido — Raver</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="site">
+    <div class="container">
+      <h1><span class="logo">R</span><a href="index.html">Club Ateneo Ingeniero Raver</a></h1>
+      <nav><a href="index.html">Torneos</a></nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="crumbs">
+      <a href="index.html">Torneos</a> ›
+      <a id="crumb-tournament" href="#">Torneo</a> ›
+      <span id="crumb-game">Partido</span>
+    </div>
+
+    <section id="game-header" class="card"></section>
+
+    <h2>Estadísticas individuales</h2>
+    <div id="boxscore"></div>
+
+    <h2>Mapa de tiros</h2>
+    <div id="shotmap" class="card"></div>
+  </main>
+
+  <script src="js/render.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/court.js"></script>
+  <script src="js/heatmap.js"></script>
+  <script>
+    (async () => {
+      const { h, escapeHtml, urlFor, getQuery, fmtDateLong } = RaverRender;
+      const { makeCourtSvg, renderShots, shotSummary } = RaverCourt;
+      const q = getQuery();
+      const iccHash = q.icc;
+      const fhash = q.hash;
+
+      if (!iccHash || !fhash) {
+        document.querySelector("main").innerHTML = '<p class="error">Faltan parámetros.</p>';
+        return;
+      }
+
+      let snap, detail;
+      try {
+        snap = await RaverAPI.loadSnapshot(iccHash);
+        const r = await fetch(`snapshots/games/${fhash}.json`);
+        if (!r.ok) throw new Error("game detail not in snapshot");
+        detail = await r.json();
+      } catch (e) {
+        document.querySelector("main").innerHTML = `<p class="error">${escapeHtml(e.message)}</p>`;
+        return;
+      }
+      document.getElementById("crumb-tournament").href = urlFor("tournament", { icc: iccHash });
+      document.getElementById("crumb-tournament").textContent = snap.category.NombreCategoria;
+
+      const meta = detail.meta || {};
+      const r = meta.Resultados || {};
+      const rl = parseInt(r.ResultadoLocal || "0");
+      const rv = parseInt(r.ResultadoVisitante || "0");
+      const isLocalHome = true;
+
+      document.title = `${meta.NombreEquipoLocal} ${rl} - ${rv} ${meta.NombreEquipoVisitante}`;
+      document.getElementById("crumb-game").textContent =
+        `J${meta.NumeroJornada} · ${meta.NombreEquipoLocal} vs ${meta.NombreEquipoVisitante}`;
+
+      // ─── Header
+      const header = document.getElementById("game-header");
+      const periodos = (r.ResultadosPeriodo || []).map((p,i) =>
+        h("span", { class: "pill" }, `Q${i+1}: ${p.Local}-${p.Visitante}`)
+      );
+      header.appendChild(h("div", { style: "display:flex; gap:24px; align-items:center; justify-content:space-between; flex-wrap:wrap" },
+        h("div", { style: "text-align:right; flex:1" },
+          h("div", { style: "font-weight:700; font-size:18px" }, meta.NombreEquipoLocal),
+          h("div", { class: "muted" }, "local"),
+        ),
+        h("div", { style: "text-align:center; min-width:160px" },
+          h("div", { style: "font-size:32px; font-weight:800" },
+            h("span", { style: rl > rv ? "color:var(--good)" : "" }, rl),
+            h("span", { class: "muted", style: "margin: 0 8px" }, "—"),
+            h("span", { style: rv > rl ? "color:var(--good)" : "" }, rv),
+          ),
+          h("div", { class: "muted", style: "margin-top: 4px" }, meta.Fecha + " " + (meta.Hora || "")),
+        ),
+        h("div", { style: "text-align:left; flex:1" },
+          h("div", { style: "font-weight:700; font-size:18px" }, meta.NombreEquipoVisitante),
+          h("div", { class: "muted" }, "visitante"),
+        ),
+      ));
+      if (periodos.length) {
+        header.appendChild(h("div", { style: "margin-top:12px; text-align:center; display:flex; gap:6px; justify-content:center; flex-wrap:wrap" }, ...periodos));
+      }
+
+      // ─── Box score
+      const estadisticas = detail.estadisticas?.estadisticas || {};
+      const box = document.getElementById("boxscore");
+      for (const side of ["estadisticasequipolocal", "estadisticasequipovisitante"]) {
+        const teamName = side.includes("local") ? estadisticas.equipolocal : estadisticas.equipovisitante;
+        const coach = side.includes("local") ? estadisticas.entrenadorlocal : estadisticas.entrenadorvisitante;
+        const rows = (estadisticas[side] || []).filter(r => (r.nombre || "").trim() && (r.nombre || "").toUpperCase() !== "TOTALES");
+        const totalRow = (estadisticas[side] || []).find(r => (r.nombre || "").toUpperCase() === "TOTALES");
+        const block = h("div", { class: "card", style: "padding:0; margin-bottom:16px" });
+        block.appendChild(h("div", { style: "padding:12px 16px; border-bottom:1px solid var(--border); background:#fafaf9" },
+          h("div", { style: "font-weight:700" }, teamName),
+          coach ? h("div", { class: "muted" }, "DT: " + coach) : null,
+        ));
+        const table = h("table", {});
+        const head = h("thead", {}, h("tr", {},
+          ...["#", "Jugador", "MIN", "PTS", "T2", "T3", "TC", "TL", "REB", "OF", "DEF", "AST", "ROB", "TAP", "PER", "FAL", "VAL", "+/-"].map((l, i) => h("th", { class: i >= 2 ? "num" : "" }, l))
+        ));
+        const body = h("tbody", {});
+        for (const r of rows) {
+          body.appendChild(h("tr", {},
+            h("td", { class: "num" }, r.dorsal || "—"),
+            h("td", {},
+              h("span", { style: r.quintetotitular ? "font-weight:600" : "" }, r.nombre + (r.capitan ? " (C)" : ""))
+            ),
+            h("td", { class: "num" }, r.tiempo_jugado || "—"),
+            h("td", { class: "num" }, r.puntos ?? 0),
+            h("td", { class: "num" }, fg(r.canasta2p, r.canasta2p + r.tiro2Fallado, r.porcentaje2p)),
+            h("td", { class: "num" }, fg(r.canasta3p, r.canasta3p + r.tiro3Fallado, r.porcentaje3p)),
+            h("td", { class: "num" }, fg(r.canasta2p + r.canasta3p, r.canasta2p + r.tiro2Fallado + r.canasta3p + r.tiro3Fallado)),
+            h("td", { class: "num" }, fg(r.canasta1p, r.canasta1p + r.tiro1Fallado, r.porcentaje1p)),
+            h("td", { class: "num" }, r.rebotes ?? 0),
+            h("td", { class: "num" }, r.reboteofensivo ?? 0),
+            h("td", { class: "num" }, r.rebotedefensivo ?? 0),
+            h("td", { class: "num" }, r.asistencias ?? 0),
+            h("td", { class: "num" }, r.recuperaciones ?? 0),
+            h("td", { class: "num" }, r.taponescometidos ?? 0),
+            h("td", { class: "num" }, r.perdidas ?? 0),
+            h("td", { class: "num" }, r.faltascometidas ?? 0),
+            h("td", { class: "num" }, r.valoracion ?? 0),
+            h("td", { class: "num" }, r.masMenos ?? 0),
+          ));
+        }
+        if (totalRow) {
+          body.appendChild(h("tr", { style: "font-weight:700;background:#f5f5f4" },
+            h("td", {}, ""),
+            h("td", {}, "TOTALES"),
+            h("td", { class: "num" }, totalRow.tiempo_jugado || "—"),
+            h("td", { class: "num" }, totalRow.puntos ?? 0),
+            h("td", { class: "num" }, fg(totalRow.canasta2p, totalRow.canasta2p + totalRow.tiro2Fallado, totalRow.porcentaje2p)),
+            h("td", { class: "num" }, fg(totalRow.canasta3p, totalRow.canasta3p + totalRow.tiro3Fallado, totalRow.porcentaje3p)),
+            h("td", { class: "num" }, fg(totalRow.canasta2p + totalRow.canasta3p, totalRow.canasta2p + totalRow.tiro2Fallado + totalRow.canasta3p + totalRow.tiro3Fallado)),
+            h("td", { class: "num" }, fg(totalRow.canasta1p, totalRow.canasta1p + totalRow.tiro1Fallado, totalRow.porcentaje1p)),
+            h("td", { class: "num" }, totalRow.rebotes ?? 0),
+            h("td", { class: "num" }, totalRow.reboteofensivo ?? 0),
+            h("td", { class: "num" }, totalRow.rebotedefensivo ?? 0),
+            h("td", { class: "num" }, totalRow.asistencias ?? 0),
+            h("td", { class: "num" }, totalRow.recuperaciones ?? 0),
+            h("td", { class: "num" }, totalRow.taponescometidos ?? 0),
+            h("td", { class: "num" }, totalRow.perdidas ?? 0),
+            h("td", { class: "num" }, totalRow.faltascometidas ?? 0),
+            h("td", { class: "num" }, totalRow.valoracion ?? 0),
+            h("td", { class: "num" }, ""),
+          ));
+        }
+        table.appendChild(head); table.appendChild(body);
+        const wrap = h("div", { class: "table-wrap", style: "border:0; border-radius:0 0 8px 8px" }, table);
+        block.appendChild(wrap);
+        box.appendChild(block);
+      }
+
+      // ─── Shot map: each team gets its own panel with a player filter
+      const shotmap = document.getElementById("shotmap");
+      const tiros = detail.mapadetiro?.mapadetiro?.tiros || [];
+      if (!tiros.length) {
+        shotmap.innerHTML = '<p class="muted">Sin datos de tiros.</p>';
+      } else {
+        const sides = [
+          { key: "local", label: meta.NombreEquipoLocal, jugadores: detail.mapadetiro?.mapadetiro?.jugadoreslocales || [] },
+          { key: "visitante", label: meta.NombreEquipoVisitante, jugadores: detail.mapadetiro?.mapadetiro?.jugadoresvisitantes || [] },
+        ];
+        for (const side of sides) {
+          const sideShots = tiros.filter(s => (side.key === "local") === !!s.local);
+          const players = (side.jugadores || []).map(j => {
+            const k = String(j.componente_id || "");
+            return {
+              componente_id: k, nombre: j.nombre, dorsal: j.dorsal,
+              shotCount: sideShots.filter(s => String(s.componente_id) === k).length,
+            };
+          });
+          const block = h("div", { class: "card", style: "padding:12px 16px; margin-bottom:16px" });
+          block.appendChild(h("h4", { style: "margin-top:0" }, side.label));
+          const inner = h("div", {});
+          block.appendChild(inner);
+          shotmap.appendChild(block);
+          RaverHeatmap.render(inner, sideShots, {
+            teamLabel: side.label,
+            players,
+            showFilter: true,
+          });
+        }
+      }
+
+      function fg(made, attempted, pct) {
+        if (!attempted) return "—";
+        const pctStr = pct != null ? ` (${pct}%)` : "";
+        return `${made}/${attempted}${pctStr}`;
+      }
+    })();
+  </script>
+  <script src="js/footer.js"></script>
+</body>
+</html>

@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Torneo — Raver</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="site">
+    <div class="container">
+      <h1>
+        <span class="logo">R</span>
+        <a href="index.html">Club Ateneo Ingeniero Raver</a>
+      </h1>
+      <nav>
+        <a href="index.html">Torneos</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="crumbs"><a href="index.html">Torneos</a> ›  <span id="breadcrumb-cat">…</span></div>
+
+    <header class="detail-header" id="header">
+      <div>
+        <div class="name" id="cat-name">Cargando…</div>
+        <div class="sub" id="cat-sub"></div>
+      </div>
+    </header>
+
+    <h2>Posiciones</h2>
+    <div class="muted" id="standings-sub"></div>
+    <div class="table-wrap">
+      <table id="standings-table"></table>
+    </div>
+
+    <h2>Líderes estadísticos</h2>
+    <div class="filter-row">
+      <label>Equipo:
+        <select id="filter-team">
+          <option value="">Todos</option>
+        </select>
+      </label>
+      <label>Mínimo de partidos:
+        <select id="filter-min-gp">
+          <option value="0">Todos</option>
+          <option value="2">≥ 2</option>
+          <option value="4" selected>≥ 4</option>
+          <option value="6">≥ 6</option>
+        </select>
+      </label>
+      <span class="muted" id="leaders-sub"></span>
+    </div>
+    <div class="table-wrap">
+      <table id="leaders-table"></table>
+    </div>
+  </main>
+
+  <script src="js/render.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/stats.js"></script>
+  <script>
+    (async () => {
+      const { h, escapeHtml, urlFor, getQuery, renderEscudo, initials } = RaverRender;
+      const { STAT_COLS, sortPlayers } = RaverStats;
+      const q = getQuery();
+      const iccHash = q.icc;
+      if (!iccHash) {
+        document.body.innerHTML = '<p class="error container">Falta el parámetro icc.</p>';
+        return;
+      }
+
+      let snap;
+      try { snap = await RaverAPI.loadSnapshot(iccHash); }
+      catch (e) {
+        document.querySelector("main").innerHTML = `<p class="error">Snapshot no encontrado para esta categoría. Ejecutá <code>python3 snapshot.py</code>.</p>`;
+        return;
+      }
+
+      // ─── Header
+      document.title = `${snap.category.NombreCategoria} — Raver`;
+      document.getElementById("breadcrumb-cat").textContent = snap.category.NombreCategoria;
+      document.getElementById("cat-name").textContent = snap.category.NombreCategoria;
+      document.getElementById("cat-sub").innerHTML =
+        `${escapeHtml(snap.category.NombreCompeticion)} · ${escapeHtml(snap.category.NombreDelegacion)}<br>` +
+        `<span class="pill">${escapeHtml(snap.phase.NombreFase)}</span>` +
+        `<span class="pill">${escapeHtml(snap.phase.NombreGrupo)}</span>`;
+
+      // ─── Standings
+      const stTable = document.getElementById("standings-table");
+      const standings = (snap.standings || []).slice().sort((a,b) => (a.Posicion||999) - (b.Posicion||999));
+      document.getElementById("standings-sub").textContent =
+        `${standings.length} equipos en el grupo ${snap.phase.NombreGrupo}.`;
+
+      // Build a lookup from team_stats so we can show offensive/defensive metrics
+      // alongside the win-loss columns.
+      const teamStatsByName = new Map();
+      for (const t of (snap.team_stats || [])) {
+        const norm = (t.equipo || "").trim().toUpperCase();
+        teamStatsByName.set(norm, t);
+      }
+
+      const stHead = h("thead", {},
+        h("tr", {},
+          h("th", { class: "num" }, "#"),
+          h("th", {}, "Equipo"),
+          h("th", { class: "num", title: "Partidos jugados" }, "PJ"),
+          h("th", { class: "num", title: "Partidos ganados" }, "PG"),
+          h("th", { class: "num", title: "Partidos perdidos" }, "PP"),
+          h("th", { class: "num", title: "Puntos (clasificación)" }, "PTS"),
+          h("th", { class: "num", title: "Cociente de victorias" }, "%V"),
+          h("th", { class: "num", title: "Puntos a favor por partido" }, "PF"),
+          h("th", { class: "num", title: "Puntos en contra por partido" }, "PC"),
+          h("th", { class: "num", title: "Diferencial de puntos por partido" }, "DIF"),
+          h("th", { class: "num", title: "Porcentaje de tiros de campo (a favor)" }, "TC%"),
+          h("th", { class: "num", title: "Porcentaje de tiros de campo recibido (rivales)" }, "TC% rec"),
+          h("th", { class: "num", title: "Porcentaje de tiros de 3 (a favor)" }, "T3%"),
+          h("th", { class: "num", title: "Porcentaje de tiros de 3 recibido (rivales)" }, "T3% rec"),
+        )
+      );
+      const stBody = h("tbody", {});
+      const teamsByName = new Map();
+      const fmt1 = v => (v != null && !Number.isNaN(v)) ? v.toFixed(1) : "—";
+      const fmtPct = v => (v != null && !Number.isNaN(v)) ? v.toFixed(1) + "%" : "—";
+
+      for (const t of standings) {
+        const isRaver = (t.NombreEquipo || "").toUpperCase().includes("INGENIERO RAVER");
+        const teamLink = h("a", {
+          href: urlFor("team", {
+            id_equipo: t.IdEquipo,
+            icc: iccHash,
+            name: t.NombreEquipo || ""
+          }),
+          class: "player-cell",
+        },
+          renderEscudo(t.Escudo, t.NombreEquipo, "escudo"),
+          h("span", {}, t.NombreEquipo || "—")
+        );
+        // Key by trimmed+upper name (some API rows have trailing whitespace)
+        teamsByName.set((t.NombreEquipo || "").trim().toUpperCase(), t.IdEquipo);
+        const pct = t.CocienteVictorias != null ? (t.CocienteVictorias * 100).toFixed(1) + "%" : "—";
+
+        // pull aggregated team stats for this row
+        const tsKey = (t.NombreEquipo || "").trim().toUpperCase();
+        const ts = teamStatsByName.get(tsKey);
+        const pf = ts && ts.GP ? ts.PTS / ts.GP : null;
+        const pa = ts && ts.GP ? ts.PTS_AGAINST / ts.GP : null;
+        const dif = (pf != null && pa != null) ? pf - pa : null;
+        const fgM = ts ? (ts.FG2_M + ts.FG3_M) : 0;
+        const fgA = ts ? (ts.FG2_A + ts.FG3_A) : 0;
+        const fgPct = fgA ? (fgM / fgA * 100) : null;
+        const fgM_ag = ts ? (ts.FG2_M_ag + ts.FG3_M_ag) : 0;
+        const fgA_ag = ts ? (ts.FG2_A_ag + ts.FG3_A_ag) : 0;
+        const fgPct_ag = fgA_ag ? (fgM_ag / fgA_ag * 100) : null;
+        const p3 = ts && ts.FG3_A ? (ts.FG3_M / ts.FG3_A * 100) : null;
+        const p3_ag = ts && ts.FG3_A_ag ? (ts.FG3_M_ag / ts.FG3_A_ag * 100) : null;
+
+        const difClass = (dif != null) ? (dif > 0 ? "good" : (dif < 0 ? "bad" : "")) : "";
+        const difStr = dif != null ? (dif > 0 ? "+" : "") + dif.toFixed(1) : "—";
+
+        stBody.appendChild(h("tr", { class: isRaver ? "raver" : "" },
+          h("td", { class: "num" }, t.Posicion || "—"),
+          h("td", {}, teamLink),
+          h("td", { class: "num" }, t.PartidosJugados ?? 0),
+          h("td", { class: "num" }, t.PartidosGanados ?? 0),
+          h("td", { class: "num" }, t.PartidosPerdidos ?? 0),
+          h("td", { class: "num" }, t.Puntos ?? 0),
+          h("td", { class: "num" }, pct),
+          h("td", { class: "num" }, fmt1(pf)),
+          h("td", { class: "num" }, fmt1(pa)),
+          h("td", { class: "num" }, h("span", { style: difClass === "good" ? "color:var(--good)" : (difClass === "bad" ? "color:var(--bad)" : "") }, difStr)),
+          h("td", { class: "num" }, fmtPct(fgPct)),
+          h("td", { class: "num" }, fmtPct(fgPct_ag)),
+          h("td", { class: "num" }, fmtPct(p3)),
+          h("td", { class: "num" }, fmtPct(p3_ag)),
+        ));
+      }
+      stTable.replaceChildren(stHead, stBody);
+
+      // ─── Stat leaders
+      const players = snap.player_stats || [];
+      const teamSelect = document.getElementById("filter-team");
+      const teams = [...new Set(players.map(p => p.equipo))].sort();
+      for (const t of teams) {
+        teamSelect.appendChild(h("option", { value: t }, t));
+      }
+
+      const ldTable = document.getElementById("leaders-table");
+      let sortKey = "PTS_avg";
+      let sortAsc = false;
+
+      function renderLeaders() {
+        const teamFilter = teamSelect.value;
+        const minGP = parseInt(document.getElementById("filter-min-gp").value, 10);
+        let rows = players.filter(p => p.GP >= minGP);
+        if (teamFilter) rows = rows.filter(p => p.equipo === teamFilter);
+        rows = sortPlayers(rows, sortKey, sortAsc);
+
+        const head = h("thead", {},
+          h("tr", {},
+            h("th", { class: "num" }, "#"),
+            h("th", {}, "Jugador"),
+            h("th", {}, "Equipo"),
+            ...STAT_COLS.map(col => h("th", {
+              class: "sortable num " + (sortKey === col.key ? "sorted " + (sortAsc ? "asc" : "") : ""),
+              title: col.title,
+              onclick: () => {
+                if (sortKey === col.key) sortAsc = !sortAsc;
+                else { sortKey = col.key; sortAsc = false; }
+                renderLeaders();
+              },
+            }, col.label))
+          )
+        );
+
+        const body = h("tbody", {});
+        rows.slice(0, 100).forEach((p, i) => {
+          const isRaver = (p.equipo || "").toUpperCase().includes("INGENIERO RAVER");
+          const teamId = teamsByName.get((p.equipo || "").trim().toUpperCase());
+          const cells = [
+            h("td", { class: "num" }, i + 1),
+            h("td", { class: "player-cell" },
+              h("a", {
+                href: urlFor("player", {
+                  componente_id: p.componente_id,
+                  team: p.idequipo,
+                  icc: iccHash,
+                }),
+              }, p.nombre)
+            ),
+            teamId ?
+              h("td", {}, h("a", { href: urlFor("team", { id_equipo: teamId, icc: iccHash, name: p.equipo }) }, p.equipo)) :
+              h("td", {}, p.equipo),
+            ...STAT_COLS.map(col => h("td", { class: "num" }, col.fmt(p[col.key])))
+          ];
+          body.appendChild(h("tr", { class: isRaver ? "raver" : "" }, cells));
+        });
+
+        document.getElementById("leaders-sub").textContent =
+          `${rows.length} jugadores · mostrando los primeros 100 ordenados por ${STAT_COLS.find(c => c.key === sortKey)?.title || sortKey}`;
+        ldTable.replaceChildren(head, body);
+      }
+      teamSelect.addEventListener("change", renderLeaders);
+      document.getElementById("filter-min-gp").addEventListener("change", renderLeaders);
+      renderLeaders();
+    })();
+  </script>
+  <script src="js/footer.js"></script>
+</body>
+</html>

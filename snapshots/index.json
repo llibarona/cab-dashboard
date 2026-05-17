@@ -1,0 +1,289 @@
+{
+  "generated_at": 1778992488,
+  "session": {
+    "id": "gCFgvXmEenPIR5rU9mss18tu1d-ZKPltu8sbYAh774XJHLfoMs-48k3zFrc_9Mx4J9xz7tPurf_14tI_Eq75Bw==",
+    "key": "MUTC0u_ZKdBCdgfYN8bHO87Sz96EaYkHpMNGWttft1nDa6zNyIzerDDTTiMhRFAHurXEGcemaJkyN02n3BhO9rEfwQG0TTB6s1t-Wpxi6HtAIdN7pfipk2LW0det1NPR1nachgNicOOHbSJezApXAJilD0f5ADFTVhDhmU7JKGegMbxre27_rVvIAnnv6N02FpQ6gSf8O6aaRNKzNmRIdsPbE7ugXL8Di0fltpv6ZA6o_OnRkRK9U2jpkwRAMwTYJNRtCA_AiU8X8PLbA9yJED1TriHeCVRDXlhhLyK0tqamR25BftzmqVBEc6X0NqPxmwSyBynRD0fJF0XRxtun5lh3Qs_0kSDtJZtCvKgE8ggrphd-NwNlJAev0CsIJuhQ6glnv7p7t9SxHnqzzGBJORVfdWzixk44EIhWKPO_yWXjZPFDf4VhmalNT4dfWIBtuD9fbxq4Mteyq8CyW99pyr1hvxylyH3s9kP5MvJ_VCvhXeJxdukB1nHuanBcQ-9k1JD7tyogAU80hJFbIaxPQ_QwF45atcB2euPugjTMCT7B1Ds6o1RFDjLv9e1ApKjj"
+  },
+  "categories": [
+    {
+      "icc": "3200430037002B005A002B007300450051003100470068006E00710062006B004400740079006900340041003D003D00",
+      "icc_int": null,
+      "icc_hash": "2541ed47b000f656",
+      "categoria": "MAYORES FEMENINO",
+      "competicion": "SUPERIOR 2026",
+      "delegacion": "ASOCIACIÓN FEMENINA METROPOLITANA DE BÁSQUETBOL",
+      "fase": "PRIMERA ETAPA",
+      "grupo": "INICIACION SUPERIOR",
+      "raver": {
+        "Id": "78004500590041007800450031004D00580032003700770050006E002F006D006800580071005500540067003D003D00",
+        "PJ": 7,
+        "PG": 0,
+        "PP": 7,
+        "Posicion": 9,
+        "Puntos": 7
+      },
+      "played": 35,
+      "upcoming": 55
+    },
+    {
+      "icc": "46006C0075004A0077002F00620037006E00540078004C0032007A006B00300074006100330030004D0067003D003D00",
+      "icc_int": null,
+      "icc_hash": "31c48eeb0e5e2614",
+      "categoria": "JUVENILES FEMENINO",
+      "competicion": "FORMATIVAS 2026",
+      "delegacion": "ASOCIACIÓN FEMENINA METROPOLITANA DE BÁSQUETBOL",
+      "fase": "PRIMERA ETAPA",
+      "grupo": "INICIACION NIVEL 3 C",
+      "raver": {
+        "Id": "72006F0074004B0032004F0064006500430043006600730045005700760055006D004C00510044006B0041003D003D00",
+        "PJ": 4,
+        "PG": 3,
+        "PP": 0,
+        "Posicion": 1,
+        "Puntos": 6
+      },
+      "played": 17,
+      "upcoming": 25
+    },
+    {
+      "icc": "6C004C00630055004C00470030002B005300430079006300390044003200730046004A0037007500560041003D003D00",
+      "icc_int": null,
+      "icc_hash": "2b4d3b72035615d2",
+      "categoria": "CADETES FEMENINO",
+      "competicion": "FORMATIVAS 2026",
+      "delegacion": "ASOCIACIÓN FEMENINA METROPOLITANA DE BÁSQUETBOL",
+      "fase": "PRIMERA ETAPA",
+      "grupo": "INICIACION NIVEL 3 C",
+      "raver": {
+        "Id": "4B004E0047007500610071005A00650072004600780035006C00610064002F0050003700580052007A0041003D003D00",
+        "PJ": 6,
+        "PG": 3,
+        "PP": 2,
+        "Posicion": 2,
+        "Puntos": 8
+      },
+      "played": 25,
+      "upcoming": 47
+    },
+    {
+      "icc": "4C005700760039006E0032003000500038004C007600570050004700300056007100660044007500760041003D003D00",
+      "icc_int": null,
+      "icc_hash": "288638a9636e738e",
+      "categoria": "INFANTILES FEMENINO",
+      "competicion": "FORMATIVAS 2026",
+      "delegacion": "ASOCIACIÓN FEMENINA METROPOLITANA DE BÁSQUETBOL",
+      "fase": "PRIMERA ETAPA",
+      "grupo": "INICIACION NIVEL 3 C",
+      "raver": {
+        "Id": "44004300650077003500370052005700720043007700360051006C00540046005300510034006100730051003D003D00",
+        "PJ": 7,
+        "PG": 2,
+        "PP": 4,
+        "Posicion": 3,
+        "Puntos": 8
+      },
+      "played": 30,
+      "upcoming": 60
+    },
+    {
+      "icc": "5A0062007100460078004F00700054003400680058006B0075005200320075006400760071006F00650041003D003D00",
+      "icc_int": 5076,
+      "icc_hash": "icc-5076",
+      "categoria": "JUVENILES MASCULINO",
+      "competicion": "FORMATIVAS 2026",
+      "delegacion": "FEDERACION DE BASQUETBOL DEL AREA METROPOLITANA DE BUENOS AIRES",
+      "fase": "TORNEO RECLASIFICATORIO",
+      "grupo": "NORTE 2B",
+      "raver": {
+        "Id": "730047006C00740048006100330035004C007600350049004300570039003000570048002B0031004C0051003D003D00",
+        "PJ": 7,
+        "PG": 5,
+        "PP": 2,
+        "Posicion": 4,
+        "Puntos": 12
+      },
+      "played": 33,
+      "upcoming": 39
+    },
+    {
+      "icc": "4E00450068006300670066005A0054006E0066004D006F0061007900790031005000780063002F00580041003D003D00",
+      "icc_int": null,
+      "icc_hash": "330feb12c1b51143",
+      "categoria": "CADETES MASCULINO",
+      "competicion": "FORMATIVAS 2026",
+      "delegacion": "FEDERACION DE BASQUETBOL DEL AREA METROPOLITANA DE BUENOS AIRES",
+      "fase": "TORNEO RECLASIFICATORIO",
+      "grupo": "NORTE 2B",
+      "raver": {
+        "Id": "45007500340071006F00370050003900470038004D005A004B0068004D00620031003200450079004B0067003D003D00",
+        "PJ": 7,
+        "PG": 7,
+        "PP": 0,
+        "Posicion": 1,
+        "Puntos": 14
+      },
+      "played": 33,
+      "upcoming": 39
+    },
+    {
+      "icc": "510071006A00630039004200650035006D005600380041005300500061005A003900470032005A004C0077003D003D00",
+      "icc_int": null,
+      "icc_hash": "3eae272d1f3e76f1",
+      "categoria": "PRE MINI MASCULINO",
+      "competicion": "FORMATIVAS 2026",
+      "delegacion": "FEDERACION DE BASQUETBOL DEL AREA METROPOLITANA DE BUENOS AIRES",
+      "fase": "TORNEO RECLASIFICATORIO",
+      "grupo": "NORTE 2B",
+      "raver": {
+        "Id": "64006C004F006700660065004800710030005400620076005100490079005A004900350059005900390067003D003D00",
+        "PJ": 7,
+        "PG": 1,
+        "PP": 3,
+        "Posicion": 6,
+        "Puntos": 5
+      },
+      "played": 33,
+      "upcoming": 39
+    },
+    {
+      "icc": "43006E006300430049005A005300520052002F007200490069005500330074007600360048007700440041003D003D00",
+      "icc_int": null,
+      "icc_hash": "153b3e0d2ca95477",
+      "categoria": "INFANTILES MASCULINO",
+      "competicion": "FORMATIVAS 2026",
+      "delegacion": "FEDERACION DE BASQUETBOL DEL AREA METROPOLITANA DE BUENOS AIRES",
+      "fase": "TORNEO RECLASIFICATORIO",
+      "grupo": "NORTE 2B",
+      "raver": {
+        "Id": "5500660054004300620062004D005600630052003000780043006D007900770035007100500053006F0077003D003D00",
+        "PJ": 7,
+        "PG": 5,
+        "PP": 2,
+        "Posicion": 3,
+        "Puntos": 12
+      },
+      "played": 33,
+      "upcoming": 39
+    },
+    {
+      "icc": "7700690039006B006100410066006C005300390071006E006C00540047006C0059006B0033006A00320077003D003D00",
+      "icc_int": null,
+      "icc_hash": "30a12743bf325999",
+      "categoria": "MINI MASCULINO",
+      "competicion": "FORMATIVAS 2026",
+      "delegacion": "FEDERACION DE BASQUETBOL DEL AREA METROPOLITANA DE BUENOS AIRES",
+      "fase": "TORNEO RECLASIFICATORIO",
+      "grupo": "NORTE 2B",
+      "raver": {
+        "Id": "760077004C0049003600550032006B006B004A005A00410073007A004B00700067004E004A0067006F0041003D003D00",
+        "PJ": 7,
+        "PG": 1,
+        "PP": 5,
+        "Posicion": 5,
+        "Puntos": 7
+      },
+      "played": 33,
+      "upcoming": 39
+    },
+    {
+      "icc": "66005800720043006A004A0075002B004B004D0043006700370071007A0044004800620079006400520067003D003D00",
+      "icc_int": 5075,
+      "icc_hash": "icc-5075",
+      "categoria": "LIGA PROXIMO MASCULINO",
+      "competicion": "FORMATIVAS 2026",
+      "delegacion": "FEDERACION DE BASQUETBOL DEL AREA METROPOLITANA DE BUENOS AIRES",
+      "fase": "TORNEO RECLASIFICACION",
+      "grupo": "NORTE 2B",
+      "raver": {
+        "Id": "6D006800760049004800670030002B0061006D0073004C00300051002F006C006F0053006A006900620051003D003D00",
+        "PJ": 6,
+        "PG": 5,
+        "PP": 1,
+        "Posicion": 3,
+        "Puntos": 11
+      },
+      "played": 31,
+      "upcoming": 41
+    },
+    {
+      "icc": "7700680068005500420032004600410036005200310063006D00470053006B0045005A0054007A00650077003D003D00",
+      "icc_int": 5074,
+      "icc_hash": "icc-5074",
+      "categoria": "MAYORES MASCULINO",
+      "competicion": "SUPERIOR 2026",
+      "delegacion": "FEDERACION DE BASQUETBOL DEL AREA METROPOLITANA DE BUENOS AIRES",
+      "fase": "RECLASIFICACION SUPERIOR",
+      "grupo": "NORTE 1",
+      "raver": {
+        "Id": "76004C005900360068006D00340079002F006C004A00760054006F00460042007400560079006100610051003D003D00",
+        "PJ": 8,
+        "PG": 2,
+        "PP": 6,
+        "Posicion": 7,
+        "Puntos": 10
+      },
+      "played": 32,
+      "upcoming": 24
+    },
+    {
+      "icc": "7400640063004C006400440075005800690071004100460066005900500066005700730062005300370041003D003D00",
+      "icc_int": null,
+      "icc_hash": "9e893d4cb64b49e4",
+      "categoria": "LIGA PROXIMO FEMENINO",
+      "competicion": "FORMATIVAS 2026",
+      "delegacion": "ASOCIACIÓN FEMENINA METROPOLITANA DE BÁSQUETBOL",
+      "fase": "PRIMERA ETAPA",
+      "grupo": "INICIACION LIGA PROXIMO ",
+      "raver": {
+        "Id": "6C004F004A004B0075003200750056006E004E002F0055006C002F0076004A004C004100580075002F0077003D003D00",
+        "PJ": 7,
+        "PG": 2,
+        "PP": 5,
+        "Posicion": 7,
+        "Puntos": 9
+      },
+      "played": 34,
+      "upcoming": 56
+    },
+    {
+      "icc": "6E0075006D0033004D0069004600520042007600740063004700390034006B0070004F0078005700570051003D003D00",
+      "icc_int": null,
+      "icc_hash": "827c65a64862b056",
+      "categoria": "MINI FEMENINO",
+      "competicion": "FORMATIVAS 2026",
+      "delegacion": "ASOCIACIÓN FEMENINA METROPOLITANA DE BÁSQUETBOL",
+      "fase": "PRIMERA ETAPA",
+      "grupo": "INICIACION NIVEL 3 C",
+      "raver": {
+        "Id": "5600770079005000790077006A0048004D0062006C00780076004600590068006F00710074005500350077003D003D00",
+        "PJ": 6,
+        "PG": 0,
+        "PP": 5,
+        "Posicion": 7,
+        "Puntos": 5
+      },
+      "played": 29,
+      "upcoming": 61
+    },
+    {
+      "icc": "61005400610077006200520070005800300036007000730054006A00450067004B0043004D0047002F0067003D003D00",
+      "icc_int": null,
+      "icc_hash": "79dadb245068d045",
+      "categoria": "PRE MINI MIXTO",
+      "competicion": "FORMATIVAS 2026",
+      "delegacion": "ASOCIACIÓN FEMENINA METROPOLITANA DE BÁSQUETBOL",
+      "fase": "PRIMERA ETAPA",
+      "grupo": "INICIACION NIVEL 3 C",
+      "raver": {
+        "Id": "740075005A0046004700420054004B00530066004E003300410030002B0053004500550042003400450051003D003D00",
+        "PJ": 7,
+        "PG": 0,
+        "PP": 0,
+        "Posicion": 5,
+        "Puntos": 0
+      },
+      "played": 32,
+      "upcoming": 58
+    }
+  ]
+}
